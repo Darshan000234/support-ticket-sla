@@ -1,0 +1,17 @@
+type Query {
+  me: User
+}
+
+type Mutation {
+  register(
+    name: String!
+    email: String!
+    password: String!
+    role: UserRole!
+  ): AuthPayload!
+
+  login(
+    email: String!
+    password: String!
+  ): AuthPayload!
+}

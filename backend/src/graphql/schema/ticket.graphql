@@ -1,0 +1,90 @@
+
+type Ticket {
+  id: ID!
+  title: String!
+  description: String!
+  priority: Priority!
+  status: TicketStatus!
+
+  reporter: User!
+  assignee: User
+
+  createdAt: DateTime!
+  firstResponseAt: DateTime
+  resolvedAt: DateTime
+
+  comments: [Comment!]!
+
+  sla: SLAInfo!
+}
+
+
+type SLAInfo {
+  firstResponseDueAt: DateTime!
+  resolutionDueAt: DateTime!
+
+  firstResponseState: SLAState!
+  resolutionState: SLAState!
+
+  firstResponseRemainingMinutes: Int!
+  resolutionRemainingMinutes: Int!
+}
+
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  createdAt: DateTime!
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SLAState {
+  ON_TRACK
+  AT_RISK
+  BREACHED
+}
+
+extend type Query {
+  ticket(id: ID!): Ticket
+}
+
+extend type Mutation {
+  createTicket(
+    title: String!
+    description: String!
+    priority: Priority!
+  ): Ticket!
+
+  assignTicket(
+    ticketId: ID!
+    assigneeId: ID!
+  ): Ticket!
+
+  changeTicketStatus(
+    ticketId: ID!
+    status: TicketStatus!
+  ): Ticket!
+
+  addComment(
+    ticketId: ID!
+    content: String!
+  ): Comment!
+
+  resolveTicket(
+    ticketId: ID!
+  ): Ticket!
+}

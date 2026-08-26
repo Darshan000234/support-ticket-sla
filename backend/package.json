@@ -4,7 +4,10 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/luxon": "^3.7.5",
     "prisma": "7"
   },
   "peerDependencies": {
@@ -13,13 +16,20 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.22.0",
+    "jsonwebtoken": "^9.0.3",
+    "luxon": "^3.7.2",
     "pg": "^8.23.0"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
   },
   "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
     "postinstall": "prisma skills sync || exit 0"
   }
 }
