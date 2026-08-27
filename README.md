@@ -2,105 +2,233 @@
 
 A full-stack Support Ticket & SLA Tracker built as a focused MVP for the Burdenoff Product Engineering Intern take-home assignment.
 
-The application allows reporters to create support tickets and agents to assign, comment on, update, and resolve them while tracking SLA deadlines using business hours.
+The application models a simple support workflow where reporters create tickets and agents manage, assign, respond to, and resolve them.
+
+The key business rule is SLA tracking based on **business hours rather than wall-clock time**. Nights, weekends, and configured holidays do not consume SLA time.
+
+---
 
 ## Features
 
-* User authentication with JWT
+* JWT-based authentication
 * Reporter and Agent roles
-* Create and manage support tickets
-* Ticket assignment
+* Secure password hashing
+* Create support tickets
+* Ticket assignment to agents
 * Ticket comments
 * First-response tracking
 * Ticket status lifecycle
 * Business-hour SLA calculation
+* First-response and resolution SLAs
 * SLA states:
 
-  * ON_TRACK
-  * AT_RISK
-  * BREACHED
-* SLA remaining business time
-* Weekend and holiday handling
-* Timezone-aware SLA calculations
+  * `ON_TRACK`
+  * `AT_RISK`
+  * `BREACHED`
+* Remaining SLA time in business minutes
+* Weekend handling
+* Configured holiday handling
+* Configurable business timezone
 * Cursor-based ticket pagination
-* Filtering by status, priority, assignee, and SLA state
+* Ticket filtering by:
+
+  * status
+  * priority
+  * assignee
+  * SLA state
+* Ticket sorting in the frontend
 * Dashboard statistics
 * Responsive React frontend
-* Automated SLA/business-rule tests
-* PostgreSQL integration test
-* Prisma migrations and seed data
+* Server-side validation
+* Server-side authorization
+* Machine-readable GraphQL errors
+* Automated SLA and business-rule tests
+* PostgreSQL integration test using Docker
+* Prisma migrations
+* Prisma seed data
 
-## Tech Stack
+## These features correspond to the core requirements in the assignment.
 
-### Backend
+# Tech Stack
 
-* Bun
-* TypeScript
-* GraphQL Yoga
-* GraphQL schema-first `.graphql` files
-* PostgreSQL
-* Prisma
-* JWT authentication
-* Argon2/bcrypt password hashing
-* Luxon for timezone-aware time calculations
-
-### Frontend
+## Frontend
 
 * React
 * TypeScript
 * Vite
+* Browser Fetch API for GraphQL requests
 
-### Infrastructure
+The frontend is a React + TypeScript application. React is used to build the login page, dashboard, ticket list, ticket detail view, ticket creation form, comment thread, filters, assignment controls, status controls, and SLA display.
+
+The frontend does **not** implement SLA business calculations. It consumes SLA state and remaining time returned by the backend.
+
+## Backend
+
+* Bun
+* TypeScript
+* GraphQL Yoga
+* Schema-first GraphQL
+* PostgreSQL
+* Prisma
+* JWT authentication
+* Argon2/bcrypt password hashing
+* Luxon for timezone-aware SLA calculations
+
+The GraphQL API is schema-first: GraphQL types are defined in `.graphql` files and resolver implementations are kept separately in TypeScript, as required by the assignment.
+
+## Infrastructure
 
 * Docker Compose
 * PostgreSQL
 
-## Architecture
+---
+
+# Architecture
 
 ```text
-React Frontend
-      |
-      | GraphQL
-      v
-GraphQL Yoga
-      |
-      v
-Resolvers
-      |
-      +----------------+
-      |                |
-      v                v
- Auth Service      Ticket Service
-                       |
-                       v
-                   SLA Service
-                       |
-          +------------+-------------+
-          |                          |
-          v                          v
-   SLA Calculator            Business Calendar
-                                     |
-                                     v
-                                  Holidays
-                       |
-                       v
-                    Prisma
-                       |
-                       v
-                  PostgreSQL
-                       |
-                     Docker
+                         React + TypeScript
+                                │
+                                │ GraphQL
+                                ▼
+                         GraphQL Yoga API
+                                │
+                                ▼
+                           Resolvers
+                                │
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+              ▼                 ▼                 ▼
+        Auth Service      Ticket Service      SLA Service
+              │                 │                 │
+              │                 │         ┌───────┴────────┐
+              │                 │         │                │
+              │                 │         ▼                ▼
+              │                 │   SLA Calculator   Business Calendar
+              │                 │                           │
+              │                 │                           ▼
+              │                 │                       Holidays
+              │                 │
+              └─────────────────┼──────────────────────────┘
+                                ▼
+                              Prisma
+                                │
+                                ▼
+                           PostgreSQL
+                                │
+                              Docker
 ```
 
-GraphQL resolvers are kept thin. Authentication, ticket business rules, and SLA calculations are implemented in dedicated services/modules.
+The implementation keeps GraphQL resolvers thin.
 
-## Database Schema
+Business logic is separated into services/modules:
 
-The application uses four core models.
+```text
+Auth
+Tickets
+SLA
+Business Calendar
+Validation / Errors
+```
 
-### User
+This keeps the SLA calculation independently testable and prevents business logic from being embedded directly inside GraphQL resolvers. The assignment explicitly asks for this separation, particularly for SLA/business-hours logic.
 
-Stores application users.
+---
+
+# Project Structure
+
+```text
+support-ticket-sla/
+│
+├── backend/
+│   ├── src/
+│   │   ├── auth/
+│   │   │   ├── authorization.ts
+│   │   │   ├── auth.service.ts
+│   │   │   └── auth.types.ts
+│   │   │
+│   │   ├── errors/
+│   │   │   └── app-error.ts
+│   │   │
+│   │   ├── graphql/
+│   │   │   ├── schema/
+│   │   │   │   ├── auth.graphql
+│   │   │   │   ├── common.graphql
+│   │   │   │   └── ticket.graphql
+│   │   │   │
+│   │   │   └── resolvers/
+│   │   │
+│   │   ├── tickets/
+│   │   │   ├── cursor.ts
+│   │   │   ├── ticket.rules.ts
+│   │   │   └── ticket.service.ts
+│   │   │
+│   │   ├── sla/
+│   │   │   ├── sla-policy.ts
+│   │   │   ├── business-calendar.ts
+│   │   │   ├── business-hours.ts
+│   │   │   ├── sla-calculator.ts
+│   │   │   └── sla.service.ts
+│   │   │
+│   │   ├── users/
+│   │   ├── holidays/
+│   │   ├── context.ts
+│   │   ├── db.ts
+│   │   └── server.ts
+│   │
+│   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   └── seed.ts
+│   │
+│   └── tests/
+│       ├── unit/
+│       └── integration/
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── graphql.ts
+│   │   │   └── queries.ts
+│   │   │
+│   │   ├── components/
+│   │   │   ├── DashboardStats.tsx
+│   │   │   ├── TicketFilters.tsx
+│   │   │   ├── TicketTable.tsx
+│   │   │   ├── TicketDetails.tsx
+│   │   │   ├── CommentThread.tsx
+│   │   │   └── CreateTicketForm.tsx
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Login.tsx
+│   │   │   └── Dashboard.tsx
+│   │   │
+│   │   ├── types/
+│   │   │   └── graphql.ts
+│   │   │
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   │
+│   └── package.json
+│
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+# Database Schema
+
+The application uses four core models required by the assignment:
+
+* `User`
+* `Ticket`
+* `Comment`
+* `Holiday`
+
+## User
 
 ```text
 User
@@ -120,9 +248,7 @@ REPORTER
 AGENT
 ```
 
-### Ticket
-
-Stores support tickets.
+## Ticket
 
 ```text
 Ticket
@@ -141,9 +267,16 @@ Ticket
 - updatedAt
 ```
 
-### Comment
+Relationships:
 
-Stores comments belonging to tickets.
+```text
+Ticket
+ ├── reporter
+ ├── assignee
+ └── comments
+```
+
+## Comment
 
 ```text
 Comment
@@ -154,9 +287,9 @@ Comment
 - createdAt
 ```
 
-### Holiday
+Every comment belongs to a ticket and records its author.
 
-Stores configured holidays used by the SLA engine.
+## Holiday
 
 ```text
 Holiday
@@ -166,11 +299,15 @@ Holiday
 - createdAt
 ```
 
-## Authentication and Authorization
+Configured holidays are used by the SLA engine and therefore directly affect deadline calculations.
+
+---
+
+# Authentication and Authorization
 
 Authentication uses JWT tokens.
 
-Passwords are never stored in plaintext. They are securely hashed before being stored.
+Passwords are never stored as plaintext. They are hashed before being persisted.
 
 Supported roles:
 
@@ -179,14 +316,16 @@ REPORTER
 AGENT
 ```
 
-Current permissions:
+## Reporter permissions
 
 ```text
-REPORTER
 - create tickets
 - comment on their own tickets
+```
 
-AGENT
+## Agent permissions
+
+```text
 - create tickets
 - comment
 - assign tickets
@@ -194,11 +333,15 @@ AGENT
 - resolve tickets
 ```
 
-Authorization is enforced on the backend rather than relying on frontend UI restrictions.
+Authorization is enforced server-side rather than relying on frontend controls.
 
-## Ticket Lifecycle
+The assignment explicitly requires server-side authentication and authorization.
 
-The ticket state machine is intentionally simple for this MVP:
+---
+
+# Ticket Lifecycle
+
+The ticket lifecycle is intentionally simple:
 
 ```text
 OPEN
@@ -213,6 +356,14 @@ RESOLVED
 CLOSED
 ```
 
+Valid transitions include:
+
+```text
+OPEN -> IN_PROGRESS
+IN_PROGRESS -> RESOLVED
+RESOLVED -> CLOSED
+```
+
 Invalid transitions are rejected server-side.
 
 For example:
@@ -223,25 +374,63 @@ OPEN -> RESOLVED
 
 is rejected because the ticket must first move to `IN_PROGRESS`.
 
-A transition from:
+Likewise:
 
 ```text
 CLOSED -> IN_PROGRESS
 ```
 
-is also rejected.
+is rejected.
 
-The API returns a machine-readable error code such as:
+The API returns a machine-readable error such as:
 
 ```text
 INVALID_STATUS_TRANSITION
 ```
 
-## SLA Calculation
+The transition rules are enforced by backend business logic rather than by the frontend.
 
-SLA time is measured using business hours rather than wall-clock time.
+---
 
-### Business Hours
+# First Response Tracking
+
+A comment from someone other than the reporter counts as the first response.
+
+Example:
+
+```text
+Reporter -> Comment
+Reporter -> Comment
+Agent    -> Comment
+```
+
+The first agent/non-reporter comment sets:
+
+```text
+firstResponseAt
+```
+
+Subsequent comments do not modify the value.
+
+Therefore:
+
+```text
+firstResponseAt
+```
+
+is the timestamp of the first response event.
+
+This is required by the assignment.
+
+---
+
+# SLA Engine
+
+SLA is calculated on the server.
+
+The frontend never performs business-hour calculations.
+
+## Business Hours
 
 ```text
 Monday - Friday
@@ -251,19 +440,38 @@ Saturday - Sunday
 Closed
 ```
 
-The configured business timezone is:
+There are:
+
+```text
+9 business hours
+per working day
+```
+
+Time outside business hours does not count.
+
+Weekends do not count.
+
+Configured holidays do not count.
+
+## Business Timezone
+
+Default configuration:
 
 ```text
 Asia/Kolkata
 ```
 
-The timezone is configurable through:
+Configured through:
 
-```text
-BUSINESS_TIMEZONE
+```env
+BUSINESS_TIMEZONE=Asia/Kolkata
 ```
 
-### SLA Policies
+The business timezone is configurable through an environment variable.
+
+---
+
+# SLA Policies
 
 | Priority | First Response    | Resolution        |
 | -------- | ----------------- | ----------------- |
@@ -272,22 +480,40 @@ BUSINESS_TIMEZONE
 | MEDIUM   | 8 business hours  | 48 business hours |
 | LOW      | 24 business hours | 72 business hours |
 
-### Example
+These are the default SLA values required by the assignment.
 
-For a HIGH priority ticket created on Friday at 17:00:
+---
+
+# Example SLA Calculation
+
+Consider:
+
+```text
+Priority: HIGH
+
+Created:
+Friday 17:00
+
+First response SLA:
+4 business hours
+```
+
+Calculation:
 
 ```text
 Friday
-17:00 -> 18:00 = 1 business hour
+17:00 -> 18:00
+= 1 business hour
 
 Saturday
-0 hours
+= 0
 
 Sunday
-0 hours
+= 0
 
 Monday
-09:00 -> 12:00 = 3 business hours
+09:00 -> 12:00
+= 3 business hours
 ```
 
 Therefore:
@@ -296,33 +522,54 @@ Therefore:
 First response deadline = Monday 12:00
 ```
 
-### Holidays
+This is the same business-hours example specified in the assignment.
 
-Configured holidays do not consume SLA time.
+---
 
-For example, if Monday is a holiday:
+# SLA Edge Cases
+
+The SLA engine handles:
 
 ```text
-Friday -> partial business time
-Saturday -> 0
-Sunday -> 0
-Monday -> 0
-Tuesday -> business hours resume
+- before business hours
+- after business hours
+- weekends
+- Friday evening
+- configured holidays
+- weekend + holiday
+- multi-day SLA calculations
+- timezone conversion
 ```
 
-The holiday calendar is retrieved from PostgreSQL and used by the SLA service.
+Examples:
 
-### Timezone Handling
+```text
+Monday 07:00
+```
 
-Database timestamps are stored in UTC.
+starts counting at:
 
-Business-hour calculations are performed in the configured business timezone.
+```text
+Monday 09:00
+```
 
-The API returns timestamps in an unambiguous ISO 8601 format.
+A ticket created at:
 
-The frontend displays timestamps using the user's local timezone.
+```text
+Monday 20:00
+```
 
-### SLA States
+starts counting from:
+
+```text
+Tuesday 09:00
+```
+
+These behaviors are explicitly required.
+
+---
+
+# SLA States
 
 Each SLA clock has one of:
 
@@ -340,49 +587,56 @@ The implementation uses:
 deadline passed -> BREACHED
 ```
 
-### SLA Freezing
+This boundary is intentionally documented so the behavior at exactly 75% is deterministic.
 
-Once a first response occurs:
+---
 
-```text
-firstResponseAt
-```
+# SLA Freezing
 
-is recorded and the first-response SLA clock stops.
-
-Once the ticket is resolved:
+The system has two independent SLA clocks:
 
 ```text
-resolvedAt
+First Response SLA
+Resolution SLA
 ```
 
-is recorded and the resolution SLA clock stops.
-
-A completed SLA cannot later become breached simply because time continues to pass.
-
-## First Response
-
-A comment from someone other than the ticket reporter counts as the first response.
-
-Example:
+When the first non-reporter response happens:
 
 ```text
-Reporter -> Comment
-Reporter -> Comment
-Agent    -> Comment
+firstResponseAt != null
 ```
 
-The first agent/non-reporter comment sets:
+the first-response clock stops.
+
+When the ticket is resolved:
 
 ```text
-firstResponseAt
+resolvedAt != null
 ```
 
-Subsequent comments do not modify this timestamp.
+the resolution clock stops.
 
-## GraphQL API
+A completed SLA cannot later become breached simply because additional wall-clock time passes.
 
-### Queries
+---
+
+# Timezone Handling
+
+Database timestamps are stored in UTC.
+
+Business-hour calculations are performed in the configured business timezone.
+
+API timestamps use an unambiguous ISO 8601 format.
+
+The frontend converts timestamps for local display.
+
+This follows the assignment's timezone requirements.
+
+---
+
+# GraphQL API
+
+## Queries
 
 ```graphql
 tickets(
@@ -403,7 +657,9 @@ users(role: UserRole): [User!]!
 holidays: [Holiday!]!
 ```
 
-### Mutations
+These cover ticket listing, filtering, pagination, individual ticket lookup, dashboard statistics, users/agents, and holidays.
+
+## Mutations
 
 ```graphql
 register(
@@ -444,7 +700,11 @@ resolveTicket(
 ): Ticket!
 ```
 
-## Cursor Pagination
+These correspond to the required authentication and ticket mutations.
+
+---
+
+# Cursor Pagination
 
 Ticket listing uses cursor-based pagination.
 
@@ -456,6 +716,8 @@ query {
     nodes {
       id
       title
+      priority
+      status
     }
 
     pageInfo {
@@ -466,9 +728,13 @@ query {
 }
 ```
 
-The returned `endCursor` can be supplied to retrieve the next page.
+The returned `endCursor` can be used to retrieve the next page.
 
-## Filtering
+The assignment requires cursor-based pagination rather than offset pagination.
+
+---
+
+# Filtering
 
 Tickets can be filtered by:
 
@@ -479,9 +745,19 @@ assigneeId
 slaState
 ```
 
-## Dashboard
+The first three can be applied directly when querying PostgreSQL.
 
-The dashboard exposes:
+`SLAState` is derived by the SLA service because SLA state depends on current time, SLA deadlines, business hours, holidays, and completion state.
+
+For this MVP, SLA filtering is therefore performed in application code after retrieving the relevant candidate tickets.
+
+This is a deliberate simplicity/performance tradeoff appropriate for the take-home scope.
+
+---
+
+# Dashboard
+
+The backend exposes:
 
 ```graphql
 query {
@@ -494,190 +770,86 @@ query {
 }
 ```
 
-The frontend displays these backend-provided values directly.
+The React frontend displays these backend-provided values directly.
 
-## Frontend
+The assignment requires a dashboard/summary API and corresponding frontend statistics.
 
-The frontend provides:
+---
 
-* Login
-* Dashboard
-* Ticket list
-* Ticket filters
-* Ticket sorting
-* Ticket creation
-* Ticket details
-* Comments
-* Ticket assignment
-* Status changes
-* Ticket resolution
-* SLA state
-* Remaining SLA time
-* Dashboard statistics
+# Frontend
 
-The frontend does not independently calculate SLA state. SLA state and remaining SLA time come from the backend.
+The frontend is implemented with **React + TypeScript + Vite**.
 
-## Environment Variables
-
-### Backend
-
-Create `backend/.env`:
-
-```env
-DATABASE_URL="postgresql://support_user:support_password@localhost:5432/support_ticket_db?schema=public"
-JWT_SECRET="replace-with-a-secure-secret"
-BUSINESS_TIMEZONE="Asia/Kolkata"
-```
-
-### Frontend
-
-Create `frontend/.env`:
-
-```env
-VITE_GRAPHQL_URL=http://localhost:4000/graphql
-```
-
-Do not commit actual secrets.
-
-## Setup
-
-### 1. Start PostgreSQL
-
-From the repository root:
-
-```bash
-docker compose up -d
-```
-
-### 2. Install backend dependencies
-
-```bash
-cd backend
-bun install
-```
-
-### 3. Run Prisma migrations
-
-```bash
-bunx prisma migrate dev
-```
-
-### 4. Generate Prisma Client
-
-```bash
-bunx prisma generate
-```
-
-### 5. Seed the database
-
-```bash
-bunx prisma db seed
-```
-
-### 6. Start the backend
-
-```bash
-bun run dev
-```
-
-The GraphQL API runs at:
+## Main UI areas
 
 ```text
-http://localhost:4000/graphql
+Login
+   ↓
+Dashboard
+   ├── Dashboard statistics
+   ├── Ticket filters
+   ├── Ticket list
+   └── Create ticket
+
+Ticket details
+   ├── Ticket information
+   ├── SLA information
+   ├── Comments
+   ├── Assignment
+   ├── Status change
+   └── Resolve
 ```
 
-### 7. Install frontend dependencies
-
-Open another terminal:
-
-```bash
-cd frontend
-bun install
-```
-
-### 8. Start the frontend
-
-```bash
-bun run dev
-```
-
-The frontend runs at the URL shown by Vite, normally:
+The frontend displays:
 
 ```text
-http://localhost:5173
+- priority
+- status
+- assignee
+- SLA state
+- remaining SLA time
+- first response information
+- resolution information
 ```
 
-## Demo Credentials
+The assignment explicitly requires these frontend capabilities.
 
-Use the seeded demo credentials documented in the project seed configuration.
+## Backend-Driven SLA
 
-Example:
+The frontend consumes:
 
 ```text
-Reporter
-reporter@example.com
-Password123!
-
-Agent
-agent@example.com
-Password123!
+firstResponseState
+resolutionState
+firstResponseRemainingMinutes
+resolutionRemainingMinutes
 ```
 
-## Testing
+It does not calculate SLA state itself.
 
-Run the complete backend test suite:
+For example, if the backend returns:
 
-```bash
-cd backend
-bun test
+```json
+{
+  "resolutionState": "AT_RISK",
+  "resolutionRemainingMinutes": 32
+}
 ```
 
-Run TypeScript checking:
+the frontend simply displays:
 
-```bash
-bun run typecheck
+```text
+AT RISK
+32m remaining
 ```
 
-Run the integration test against Docker PostgreSQL:
+The backend is the source of truth for SLA state.
 
-```bash
-bun test tests/integration
-```
+---
 
-The integration test uses a real PostgreSQL database rather than mocking Prisma or PostgreSQL.
+# Error Handling
 
-## Important Test Cases
-
-The SLA test suite covers:
-
-* Normal weekday calculation
-* Ticket created before business hours
-* Ticket created after business hours
-* Weekend
-* Friday evening
-* Public holiday
-* Weekend + holiday
-* Multiple business days
-* First-response SLA
-* Resolution SLA
-* ON_TRACK
-* AT_RISK
-* BREACHED
-* Completed SLA freezing
-
-Business logic tests also cover:
-
-* Ticket creation
-* Validation
-* Status transitions
-* Assignment
-* First-response recording
-* Comment creation
-* Authorization
-
-## Error Handling
-
-Expected business errors are represented using machine-readable GraphQL error codes.
+Expected business failures return machine-readable GraphQL error codes.
 
 Examples:
 
@@ -692,81 +864,611 @@ INVALID_PRIORITY
 INVALID_COMMENT
 ```
 
-The frontend displays these errors instead of exposing raw server errors to the user.
+The frontend displays these failures as user-facing errors instead of relying on unhandled server errors.
 
-## Project Structure
+This follows the assignment's error-handling requirements.
+
+---
+
+# Environment Variables
+
+## Backend
+
+Create:
 
 ```text
-support-ticket-sla/
-├── backend/
-│   ├── src/
-│   │   ├── auth/
-│   │   ├── errors/
-│   │   ├── graphql/
-│   │   ├── tickets/
-│   │   ├── sla/
-│   │   ├── users/
-│   │   ├── holidays/
-│   │   ├── context.ts
-│   │   ├── db.ts
-│   │   └── server.ts
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   ├── schema.prisma
-│   │   └── seed.ts
-│   └── tests/
-│       ├── unit/
-│       └── integration/
-│
-├── frontend/
-│   └── src/
-│       ├── api/
-│       ├── components/
-│       ├── pages/
-│       ├── types/
-│       ├── App.tsx
-│       ├── main.tsx
-│       └── index.css
-│
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-└── README.md
+backend/.env
 ```
 
-## Tradeoffs
+```env
+DATABASE_URL="postgresql://support_user:support_password@localhost:5432/support_ticket_db?schema=public"
+JWT_SECRET="replace-with-a-secure-secret"
+BUSINESS_TIMEZONE="Asia/Kolkata"
+```
 
-This project intentionally keeps the architecture simple because it is an MVP take-home assignment.
+## Frontend
 
-Examples:
+Create:
 
-* SLA state is calculated server-side rather than stored as mutable database state.
-* SLA filtering is performed in application code after retrieving the relevant ticket set.
-* The frontend uses a lightweight GraphQL fetch wrapper instead of a larger GraphQL client.
-* The project uses one configured business calendar rather than multiple team-specific calendars.
-* Real-time updates and notifications are not implemented.
+```text
+frontend/.env
+```
 
-These choices keep the implementation focused on the required business behavior.
+```env
+VITE_GRAPHQL_URL=http://localhost:4000/graphql
+```
 
-## Known Limitations
+Do not commit real secrets.
 
-* No SLA pause while waiting for a customer
-* No escalation or notification system
-* No audit log
-* No per-team business calendars
-* No live WebSocket updates
-* No advanced reporting or agent performance metrics
+The repository contains `.env.example` files instead. The assignment explicitly requires sensitive configuration to be kept out of version control.
 
-## How I'd Extend This
+---
 
-With additional time, I would add:
+# Setup
+
+## 1. Start PostgreSQL
+
+From the repository root:
+
+```bash
+docker compose up -d
+```
+
+Verify:
+
+```bash
+docker compose ps
+```
+
+## 2. Install backend dependencies
+
+```bash
+cd backend
+bun install
+```
+
+## 3. Run Prisma migrations
+
+```bash
+bunx prisma migrate dev
+```
+
+## 4. Generate Prisma Client
+
+```bash
+bunx prisma generate
+```
+
+## 5. Seed the database
+
+```bash
+bunx prisma db seed
+```
+
+## 6. Start the backend
+
+```bash
+bun run dev
+```
+
+GraphQL endpoint:
+
+```text
+http://localhost:4000/graphql
+```
+
+## 7. Install frontend dependencies
+
+Open another terminal:
+
+```bash
+cd frontend
+bun install
+```
+
+## 8. Start the frontend
+
+```bash
+bun run dev
+```
+
+Frontend:
+
+```text
+http://localhost:5173
+```
+
+The setup is intentionally simple and designed around Docker + Prisma + Bun, consistent with the assignment's requested setup flow.
+
+---
+
+# Demo Credentials
+
+Use the seeded demo credentials configured by the project seed.
+
+Typical demo accounts:
+
+```text
+Reporter
+email: reporter@example.com
+password: Password123!
+
+Agent
+email: agent@example.com
+password: Password123!
+```
+
+These credentials are for local demonstration only.
+
+---
+
+# Testing
+
+## Run all backend tests
+
+```bash
+cd backend
+bun test
+```
+
+## Run TypeScript type checking
+
+```bash
+bun run typecheck
+```
+
+## Run integration tests
+
+Start PostgreSQL first:
+
+```bash
+docker compose up -d
+```
+
+Then:
+
+```bash
+cd backend
+bun test tests/integration
+```
+
+The integration test uses the real PostgreSQL database running through Docker. PostgreSQL is not mocked for this test.
+
+## Frontend production build
+
+```bash
+cd frontend
+bun run build
+```
+
+---
+
+# Automated Test Coverage
+
+The test suite covers the SLA/business-hour requirements specified by the assignment.
+
+## SLA calculations
+
+* normal weekday
+* before business hours
+* after business hours
+* weekend
+* Friday evening
+* public holiday
+* weekend + holiday combination
+* multi-day SLA
+* first-response SLA
+* resolution SLA
+* `ON_TRACK`
+* `AT_RISK`
+* `BREACHED`
+* completed SLA freezing
+
+These cases correspond to the assignment's required unit-test areas.
+
+## Business rules
+
+* ticket creation
+* ticket validation
+* status transitions
+* assignment
+* first-response recording
+* comment creation
+* authorization
+
+The assignment also explicitly requires these business-rule tests.
+
+## Integration test
+
+The PostgreSQL integration test covers:
+
+```text
+Create ticket
+      ↓
+Reporter comment
+      ↓
+Agent comment
+      ↓
+firstResponseAt
+      ↓
+Persisted SLA information
+```
+
+This follows the integration scenario suggested in the assignment.
+
+---
+
+# Seed Data
+
+The seed includes:
+
+```text
+Users
+├── reporter@example.com
+└── agent@example.com
+
+Tickets
+├── URGENT
+├── HIGH
+├── MEDIUM
+└── LOW
+
+Holidays
+└── sample configured holiday
+```
+
+This provides enough data to demonstrate the ticket lifecycle, filters, assignment, and SLA behavior.
+
+---
+
+# Design Decisions
+
+## Keep SLA state derived
+
+SLA state is not stored as mutable state such as:
+
+```text
+slaState = AT_RISK
+```
+
+because the state depends on current time and business-hour calculations.
+
+Instead, the backend calculates the current SLA state from:
+
+```text
+createdAt
+dueAt
+completion timestamp
+current time
+business calendar
+```
+
+This avoids stale SLA state.
+
+## Keep business logic outside resolvers
+
+GraphQL resolvers coordinate requests.
+
+Services implement:
+
+```text
+authentication
+ticket operations
+SLA calculations
+authorization
+```
+
+This keeps the core logic testable without coupling it to the GraphQL layer.
+
+## Keep the frontend thin
+
+React receives:
+
+```text
+SLA state
+remaining minutes
+ticket state
+```
+
+and renders them.
+
+Business-hour calculations stay on the server.
+
+## Keep the project intentionally small
+
+This is an MVP take-home assignment.
+
+The project does not introduce unnecessary infrastructure such as Redis, message queues, microservices, WebSockets, or an elaborate state-management system.
+
+---
+
+# Tradeoffs
+
+This implementation intentionally makes some MVP-oriented tradeoffs.
+
+### SLA filtering
+
+`SLAState` is calculated in application code because it is derived state rather than a stored database field.
+
+A larger system could optimize this using materialized state, indexed deadline queries, or a more sophisticated query strategy.
+
+### Frontend sorting
+
+Sorting is handled in the frontend because the required GraphQL API does not define a sort argument.
+
+For a larger dataset, server-side sorting would be preferable.
+
+### Single business calendar
+
+The current implementation uses one configured business timezone and business calendar.
+
+A production system could support team-specific calendars and regional holidays.
+
+### JWT storage
+
+For this take-home MVP, the frontend stores the access token in browser storage.
+
+A production application could use a more hardened authentication/session design such as secure HTTP-only cookies and stronger session lifecycle controls.
+
+---
+
+# Known Limitations
+
+The following are intentionally not implemented:
+
+* SLA pause while waiting for customer
+* escalation notifications
+* email notifications
+* audit logs
+* per-team business calendars
+* multiple business timezones
+* live WebSocket updates
+* advanced analytics
+* agent performance metrics
+
+## These are outside the MVP scope and overlap with the extension/bonus ideas suggested in the assignment.
+
+# How I'd Extend This
+
+With more time, I would add:
 
 1. SLA pause/resume for `WAITING_ON_CUSTOMER`
-2. Escalation and notification rules
-3. Audit logging for status and assignment changes
+2. SLA escalation and notification rules
+3. Audit logs for status and assignment changes
 4. Per-team business calendars
 5. Agent performance metrics
 
-## License
+---
 
-This project was created as part of the Burdenoff Product Engineering Intern take-home assignment.
+# GraphQL Example
+
+## Login
+
+```graphql
+mutation {
+  login(
+    email: "reporter@example.com"
+    password: "Password123!"
+  ) {
+    token
+    user {
+      id
+      name
+      email
+      role
+    }
+  }
+}
+```
+
+## Create Ticket
+
+```graphql
+mutation {
+  createTicket(
+    title: "Payment failed"
+    description: "Customer cannot complete checkout."
+    priority: HIGH
+  ) {
+    id
+    title
+    priority
+    status
+    firstResponseAt
+    resolvedAt
+    sla {
+      firstResponseDueAt
+      resolutionDueAt
+      firstResponseState
+      resolutionState
+      firstResponseRemainingMinutes
+      resolutionRemainingMinutes
+    }
+  }
+}
+```
+
+## List Tickets
+
+```graphql
+query {
+  tickets(
+    status: OPEN
+    priority: HIGH
+    take: 10
+  ) {
+    nodes {
+      id
+      title
+      priority
+      status
+      reporter {
+        name
+      }
+      assignee {
+        name
+      }
+      sla {
+        firstResponseState
+        resolutionState
+        firstResponseRemainingMinutes
+        resolutionRemainingMinutes
+      }
+    }
+
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+```
+
+## Dashboard
+
+```graphql
+query {
+  dashboard {
+    openTickets
+    inProgressTickets
+    atRiskTickets
+    breachedTickets
+  }
+}
+```
+
+## Add Comment
+
+```graphql
+mutation {
+  addComment(
+    ticketId: "TICKET_ID"
+    content: "We are investigating the issue."
+  ) {
+    id
+    content
+    createdAt
+    author {
+      name
+      role
+    }
+  }
+}
+```
+
+---
+
+# Submission
+
+The assignment asks for:
+
+* Git repository URL
+* Pull Request URL
+* README
+* 5–10 minute walkthrough
+
+The walkthrough should explain:
+
+* overall architecture
+* GraphQL schema
+* database schema
+* SLA calculation
+* business-hours handling
+* timezone handling
+* status transitions
+* testing strategy
+* important tradeoffs
+
+---
+
+# Final Verification
+
+Before submitting, verify the following:
+
+```text
+Infrastructure
+[ ] Docker PostgreSQL starts
+[ ] Prisma migration works
+[ ] Prisma seed works
+
+Backend
+[ ] GraphQL Yoga starts
+[ ] Login works
+[ ] JWT authentication works
+[ ] Registration works
+[ ] Authorization works
+[ ] Validation errors work
+
+Ticket lifecycle
+[ ] Create ticket
+[ ] Assign ticket
+[ ] Add comment
+[ ] First response recorded
+[ ] Status change
+[ ] Resolve ticket
+[ ] Close ticket
+[ ] Invalid transitions rejected
+
+SLA
+[ ] First-response deadline correct
+[ ] Resolution deadline correct
+[ ] Before-hours calculation correct
+[ ] After-hours calculation correct
+[ ] Weekend excluded
+[ ] Friday evening correct
+[ ] Holiday excluded
+[ ] Weekend + holiday correct
+[ ] Multi-day calculation correct
+[ ] ON_TRACK correct
+[ ] 75% boundary correct
+[ ] AT_RISK correct
+[ ] BREACHED correct
+[ ] Completed SLA stays completed
+
+Queries
+[ ] ticket
+[ ] tickets
+[ ] status filter
+[ ] priority filter
+[ ] assignee filter
+[ ] SLA filter
+[ ] cursor pagination
+[ ] dashboard
+[ ] users
+[ ] holidays
+
+Frontend
+[ ] Login
+[ ] Dashboard
+[ ] Ticket list
+[ ] Filters
+[ ] Sorting
+[ ] Create ticket
+[ ] Ticket details
+[ ] Comments
+[ ] Assignment
+[ ] Status change
+[ ] Resolve
+[ ] SLA display
+[ ] Error display
+[ ] Responsive layout
+
+Testing
+[ ] bun test passes
+[ ] integration test passes against Docker PostgreSQL
+[ ] backend typecheck passes
+[ ] frontend build passes
+
+Git
+[ ] meaningful commits
+[ ] .env excluded
+[ ] .env.example committed
+[ ] migration files committed
+[ ] README committed
+[ ] Pull Request created
+
+Submission
+[ ] GitHub repository URL
+[ ] Pull Request URL
+[ ] Walkthrough video
+```
