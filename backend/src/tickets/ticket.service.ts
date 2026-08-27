@@ -191,8 +191,8 @@ export async function changeTicketStatus(
       status: nextStatus,
       ...(resolvedAt
         ? {
-            resolvedAt,
-          }
+          resolvedAt,
+        }
         : {}),
     },
     include: ticketInclude,
@@ -355,13 +355,28 @@ export async function listTickets(
     );
 
     filtered = slaResults
-      .filter(
-        ({ sla }) =>
-          sla.firstResponseState ===
-            input.slaState ||
-          sla.resolutionState ===
-            input.slaState,
-      )
+      .filter(({ sla }) => {
+        let primaryState:
+          | "ON_TRACK"
+          | "AT_RISK"
+          | "BREACHED";
+
+        if (
+          sla.firstResponseState === "BREACHED" ||
+          sla.resolutionState === "BREACHED"
+        ) {
+          primaryState = "BREACHED";
+        } else if (
+          sla.firstResponseState === "AT_RISK" ||
+          sla.resolutionState === "AT_RISK"
+        ) {
+          primaryState = "AT_RISK";
+        } else {
+          primaryState = "ON_TRACK";
+        }
+
+        return primaryState === input.slaState;
+      })
       .map(({ ticket }) => ticket);
   }
 
