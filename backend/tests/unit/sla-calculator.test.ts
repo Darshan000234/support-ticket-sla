@@ -21,6 +21,16 @@ const calendar = createBusinessCalendar(
   [],
 );
 
+const holidayCalendar = createBusinessCalendar(
+  "Asia/Kolkata",
+  [
+    {
+      date: dt("2026-08-24T00:00:00"),
+      name: "Test Holiday",
+    },
+  ],
+);
+
 function dt(value: string): DateTime {
   return DateTime.fromISO(value, {
     zone: "Asia/Kolkata",
@@ -48,6 +58,25 @@ describe("SLA Calculator", () => {
   );
 
   test(
+    "starts at business opening when created before business hours",
+    () => {
+      const start = dt(
+        "2026-08-24T07:00:00",
+      );
+
+      const result = addBusinessMinutes(
+        start,
+        60,
+        calendar,
+      );
+
+      expect(result.toISO()).toBe(
+        "2026-08-24T10:00:00.000+05:30",
+      );
+    },
+  );
+
+  test(
     "moves an after-hours ticket to the next business period",
     () => {
       const start = dt(
@@ -67,87 +96,40 @@ describe("SLA Calculator", () => {
   );
 
   test(
-  "moves an after-hours ticket to the next business period",
-  () => {
-    const start =
-      dt("2026-08-24T20:00:00");
-
-    const result =
-      addBusinessMinutes(
-        start,
-        60,
-        calendar,
+    "crosses a weekend correctly",
+    () => {
+      const start = dt(
+        "2026-08-21T17:00:00",
       );
 
-    expect(result.toISO()).toBe(
-      "2026-08-25T10:00:00.000+05:30",
-    );
-  },
-);
-
-test(
-  "crosses a weekend correctly",
-  () => {
-    const start =
-      dt("2026-08-21T17:00:00");
-
-    const result =
-      addBusinessMinutes(
+      const result = addBusinessMinutes(
         start,
         240,
         calendar,
       );
 
-    expect(result.toISO()).toBe(
-      "2026-08-24T12:00:00.000+05:30",
-    );
-  },
-);
-test(
-  "skips configured holidays",
-  () => {
-    const start =
-      dt("2026-08-23T12:00:00");
-
-    const result =
-      addBusinessMinutes(
-        start,
-        60,
-        holidayCalendar,
+      expect(result.toISO()).toBe(
+        "2026-08-24T12:00:00.000+05:30",
       );
-
-    expect(result.toISO()).toBe(
-      "2026-08-25T10:00:00.000+05:30",
-    );
-  },
-);
-test(
-  "skips configured holidays",
-  () => {
-    const start =
-      dt("2026-08-23T12:00:00");
-
-    const result =
-      addBusinessMinutes(
-        start,
-        60,
-        holidayCalendar,
-      );
-
-    expect(result.toISO()).toBe(
-      "2026-08-25T10:00:00.000+05:30",
-    );
-  },
-);
-});
-
-const holidayCalendar =
-  createBusinessCalendar(
-    "Asia/Kolkata",
-    [
-      {
-        date: dt("2026-08-24T00:00:00"),
-        name: "Test Holiday",
-      },
-    ],
+    },
   );
+
+  test(
+    "skips configured holidays",
+    () => {
+      const start = dt(
+        "2026-08-23T12:00:00",
+      );
+
+      const result = addBusinessMinutes(
+        start,
+        60,
+        holidayCalendar,
+      );
+
+      expect(result.toISO()).toBe(
+        "2026-08-25T10:00:00.000+05:30",
+      );
+    },
+  );
+});

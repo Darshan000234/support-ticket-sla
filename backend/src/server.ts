@@ -43,11 +43,59 @@ const yoga = createYoga({
   context: ({ request }) => createContext(request),
 });
 
+const ALLOWED_ORIGIN =
+  "http://localhost:5173";
+
 const server = Bun.serve({
   port: 4000,
-  fetch: yoga,
-});
 
+  async fetch(request) {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin":
+            ALLOWED_ORIGIN,
+          "Access-Control-Allow-Headers":
+            "Content-Type, Authorization",
+          "Access-Control-Allow-Methods":
+            "POST, OPTIONS",
+        },
+      });
+    }
+
+    const response =
+      await yoga.fetch(request);
+
+    const headers =
+      new Headers(response.headers);
+
+    headers.set(
+      "Access-Control-Allow-Origin",
+      ALLOWED_ORIGIN,
+    );
+
+    headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization",
+    );
+
+    headers.set(
+      "Access-Control-Allow-Methods",
+      "POST, OPTIONS",
+    );
+
+    return new Response(
+      response.body,
+      {
+        status: response.status,
+        statusText:
+          response.statusText,
+        headers,
+      },
+    );
+  },
+});
 console.log(
   `GraphQL server running at http://localhost:${server.port}/graphql`,
 );

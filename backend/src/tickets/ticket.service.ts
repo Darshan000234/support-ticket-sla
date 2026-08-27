@@ -9,6 +9,15 @@ import {
 import { prisma } from "../db";
 import { AppError } from "../errors/app-error";
 import { validateStatusTransition } from "./ticket.rules";
+import {
+  decodeCursor,
+  encodeCursor,
+} from "./cursor";
+
+import {
+  getTicketSlaInfo,
+} from "../sla/sla.service";
+
 
 const ticketInclude = {
   reporter: true,
@@ -275,4 +284,184 @@ export async function addComment(
   );
 
   return result;
+}
+
+export interface ListTicketsInput {
+  status?: TicketStatus;
+  priority?: Priority;
+  assigneeId?: string;
+  slaState?: "ON_TRACK" | "AT_RISK" | "BREACHED";
+  take?: number;
+  cursor?: string;
+}
+
+export interface TicketConnectionResult {
+  nodes: TicketWithRelations[];
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor: string | null;
+  };
+}
+
+export async function listTickets(
+  input: ListTicketsInput,
+): Promise<TicketConnectionResult> {
+  const requestedTake = input.take ?? 10;
+
+  const take = Math.min(
+    Math.max(requestedTake, 1),
+    50,
+  );
+
+  const where: Prisma.TicketWhereInput = {
+    ...(input.status
+      ? { status: input.status }
+      : {}),
+
+    ...(input.priority
+      ? { priority: input.priority }
+      : {}),
+
+    ...(input.assigneeId
+      ? { assigneeId: input.assigneeId }
+      : {}),
+  };
+
+  const tickets = await prisma.ticket.findMany({
+    where,
+    include: ticketInclude,
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        id: "desc",
+      },
+    ],
+  });
+
+  let filtered = tickets;
+
+  if (input.slaState) {
+    const slaResults = await Promise.all(
+      tickets.map(async (ticket) => {
+        const sla = await getTicketSlaInfo(ticket);
+
+        return {
+          ticket,
+          sla,
+        };
+      }),
+    );
+
+    filtered = slaResults
+      .filter(
+        ({ sla }) =>
+          sla.firstResponseState ===
+            input.slaState ||
+          sla.resolutionState ===
+            input.slaState,
+      )
+      .map(({ ticket }) => ticket);
+  }
+
+  let startIndex = 0;
+
+  if (input.cursor) {
+    const cursorId =
+      decodeCursor(input.cursor);
+
+    const index = filtered.findIndex(
+      (ticket) =>
+        ticket.id === cursorId,
+    );
+
+    if (index >= 0) {
+      startIndex = index + 1;
+    }
+  }
+
+  const page = filtered.slice(
+    startIndex,
+    startIndex + take + 1,
+  );
+
+  const hasNextPage =
+    page.length > take;
+
+  const nodes = hasNextPage
+    ? page.slice(0, take)
+    : page;
+
+  const lastNode =
+    nodes[nodes.length - 1];
+
+  return {
+    nodes,
+    pageInfo: {
+      hasNextPage,
+      endCursor: lastNode
+        ? encodeCursor(lastNode.id)
+        : null,
+    },
+  };
+}
+
+export interface TicketDashboard {
+  openTickets: number;
+  inProgressTickets: number;
+  atRiskTickets: number;
+  breachedTickets: number;
+}
+
+export async function getDashboard(): Promise<TicketDashboard> {
+  const [
+    openTickets,
+    inProgressTickets,
+    tickets,
+  ] = await Promise.all([
+    prisma.ticket.count({
+      where: {
+        status: "OPEN",
+      },
+    }),
+
+    prisma.ticket.count({
+      where: {
+        status: "IN_PROGRESS",
+      },
+    }),
+
+    prisma.ticket.findMany({
+      include: ticketInclude,
+    }),
+  ]);
+
+  let atRiskTickets = 0;
+  let breachedTickets = 0;
+
+  for (const ticket of tickets) {
+    const sla = await getTicketSlaInfo(ticket);
+
+    if (
+      sla.firstResponseState === "AT_RISK" ||
+      sla.resolutionState === "AT_RISK"
+    ) {
+      atRiskTickets += 1;
+    }
+
+    if (
+      sla.firstResponseState === "BREACHED" ||
+      sla.resolutionState === "BREACHED"
+    ) {
+      breachedTickets += 1;
+    }
+  }
+
+  return {
+    openTickets,
+    inProgressTickets,
+    atRiskTickets,
+    breachedTickets,
+  };
 }

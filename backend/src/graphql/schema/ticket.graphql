@@ -1,4 +1,46 @@
 
+type TicketConnection {
+  nodes: [Ticket!]!
+  pageInfo: PageInfo!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String 
+}
+
+type TicketDashboard {
+  openTickets: Int!
+  inProgressTickets: Int!
+  atRiskTickets: Int!
+  breachedTickets: Int!
+}
+
+type Holiday {
+  id: ID!
+  date: DateTime!
+  name: String!
+}
+
+extend type Query {
+  ticket(id: ID!): Ticket
+
+  tickets(
+    status: TicketStatus
+    priority: Priority
+    assigneeId: ID
+    slaState: SLAState
+    take: Int
+    cursor: String
+  ): TicketConnection!
+
+  dashboard: TicketDashboard!
+
+  users(role: UserRole): [User!]!
+
+  holidays: [Holiday!]!
+}
+
 type Ticket {
   id: ID!
   title: String!
@@ -58,9 +100,6 @@ enum SLAState {
   BREACHED
 }
 
-extend type Query {
-  ticket(id: ID!): Ticket
-}
 
 extend type Mutation {
   createTicket(

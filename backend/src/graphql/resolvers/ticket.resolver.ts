@@ -3,13 +3,9 @@ import {
   type Priority,
   type TicketStatus,
 } from "../../generated/prisma/client";
-import {
-  calculateSlaClock,
-} from "../../sla/sla-calculator";
-import {
-  getTicketSlaInfo,
-} from "../../sla/sla.service";
+
 import type { GraphQLContext } from "../../auth/auth.types";
+
 import {
   requireAuthenticatedUser,
   requireRole,
@@ -22,9 +18,13 @@ import {
   assignTicket,
   changeTicketStatus,
   createTicket,
+  getDashboard,
   getTicketById,
+  listTickets,
   resolveTicket,
 } from "../../tickets/ticket.service";
+
+import { getTicketSlaInfo } from "../../sla/sla.service";
 
 interface CreateTicketArgs {
   title: string;
@@ -55,6 +55,15 @@ interface ResolveTicketArgs {
   ticketId: string;
 }
 
+interface ListTicketsArgs {
+  status?: TicketStatus;
+  priority?: Priority;
+  assigneeId?: string;
+  slaState?: "ON_TRACK" | "AT_RISK" | "BREACHED";
+  take?: number;
+  cursor?: string;
+}
+
 export const ticketResolvers = {
   Ticket: {
     sla: async (ticket: {
@@ -78,6 +87,24 @@ export const ticketResolvers = {
       requireAuthenticatedUser(context);
 
       return getTicketById(args.id);
+    },
+    tickets: async (
+      _parent: unknown,
+      args: ListTicketsArgs,
+      context: GraphQLContext,
+    ) => {
+      requireAuthenticatedUser(context);
+
+      return listTickets(args);
+    },
+    dashboard: async (
+      _parent: unknown,
+      _args: unknown,
+      context: GraphQLContext,
+    ) => {
+      requireAuthenticatedUser(context);
+
+      return getDashboard();
     },
   },
 

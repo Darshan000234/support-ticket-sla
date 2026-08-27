@@ -29,7 +29,7 @@
   },
   "scripts": {
     "dev": "bun --watch src/server.ts",
-    "start": "bun src/server.ts",
-    "postinstall": "prisma skills sync || exit 0"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   }
 }
